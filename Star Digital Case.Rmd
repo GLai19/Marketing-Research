@@ -1,0 +1,93 @@
+---
+title: "Star Digital Case"
+output: html_document
+---
+
+```{r}
+library("caret")
+library("e1071")
+library("readxl")
+data<-read_xlsx("Star Digital Data.xlsx")
+summary(data)
+
+```
+
+
+
+```{r}
+#Question 1#
+test_impression<-sum(sum(data$imp_1[data$test==1]),sum(data$imp_2[data$test==1]),sum(data$imp_3[data$test==1]),sum(data$imp_4[data$test==1]),sum(data$imp_5[data$test==1]),sum(data$imp_6[data$test==1]))
+test_impression
+control_impression<-sum(sum(data$imp_1[data$test==0]),sum(data$imp_2[data$test==0]),sum(data$imp_3[data$test==0]),sum(data$imp_4[data$test==0]),sum(data$imp_5[data$test==0]),sum(data$imp_6[data$test==0]))
+control_impression
+for (i in 1:nrow(data)){
+  data$total_imp[i]<-sum(data$imp_1[i],data$imp_2[i],data$imp_3[i],data$imp_4[i],data$imp_5[i],data$imp_6[i])}
+valid_test<-t.test(data$total_imp[data$test==1],data$total_imp[data$test==0])
+valid_test
+```
+
+
+
+
+```{r}
+#Question 2 and 3, combining impressiosn on website 1 through 5 because can't differentiate these website in possible ad spending#
+set.seed(1995) 
+for (i in 1:nrow(data)){
+  data$imp_15[i]<-sum(data$imp_1[i],data$imp_2[i],data$imp_3[i],data$imp_4[i],data$imp_5[i])}
+data
+model1<-glm(purchase ~ imp_15+imp_6+test,data=data,family=binomial(link="logit"))
+model2 <- glm(data$purchase ~ (imp_15|test)+(imp_6|test),  
+             data=data,  
+             family=binomial(link = "logit"))
+summary(model1)
+summary(model2)
+
+
+
+```
+
+
+
+
+```{r}
+#optimize investment amount on website 1 through 5 and check its aggregate lifetime value#
+profit1<-function(invest,data){
+  avg_imp1<-invest/(0.025*nrow(data))
+  d1<-data
+  d1$imp_15<-d1$imp_15+avg_imp1
+  d1$imp_6<-0
+  d1$purchase_prob<-predict.glm(model2,newdata=d1,type="response")
+  d1$value<-d1$purchase_prob*1200
+  return(sum(d1$value))
+}
+
+set.seed(1995)
+opt1<-optim(1000, profit1, method="L-BFGS-B", control=list(fnscale=-1), data=data)
+c(opt1$par, opt1$value)
+```
+
+
+
+
+
+```{r}
+#optimize investment amount on website 6 and check its aggregate lifetime value#
+profit2<-function(invest,data){
+  avg_imp2<-invest/(0.025*nrow(data))
+  d2<-data
+  d2$imp_6<-d2$imp_6+avg_imp2
+  d2$imp_15<-0
+  d2$purchase_prob<-predict.glm(model2,newdata=d2,type="response")
+  d2$value<-d2$purchase_prob*1200
+  return(sum(d2$value))
+}
+
+set.seed(1995)
+opt2<-optim(1000, profit2, method="L-BFGS-B", control=list(fnscale=-1), data=data)
+c(opt2$par, opt2$value)
+```
+```
+
+
+
+```
